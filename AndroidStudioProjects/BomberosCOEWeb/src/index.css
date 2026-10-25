@@ -132,6 +132,17 @@ body {
 .marcador-radar { cursor: grab; filter: drop-shadow(0 0 6px rgba(0, 230, 118, 0.6)); }
 .marcador-radar:active { cursor: grabbing; }
 
+/* Resultados de búsqueda de dirección: pin numerado ámbar (despacho/atención) */
+.pin-resultado {
+  width: 26px; height: 26px; border-radius: 50% 50% 50% 0; transform: rotate(-45deg);
+  background: #FFB020; border: 2px solid #0B0D10; cursor: pointer;
+  color: #0B0D10; font: 900 12px/22px 'Inter', sans-serif; text-align: center;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.5);
+}
+.pin-resultado .pin-num { display: block; transform: rotate(45deg); }
+.pin-resultado:hover { background: #FFC24D; }
+.pin-resultado:focus-visible { outline: 2px solid #FFFFFF; outline-offset: 2px; }
+
 .popup-tactico-wrap .maplibregl-popup-content {
   background: rgba(11, 13, 16, 0.94);
   border: 1px solid rgba(255, 59, 48, 0.55);

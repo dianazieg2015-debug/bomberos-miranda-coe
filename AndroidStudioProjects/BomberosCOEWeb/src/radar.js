@@ -27,26 +27,64 @@ export const RADIO_MAX_KM = 30
 
 export const limitarRadio = (km) => Math.min(RADIO_MAX_KM, Math.max(RADIO_MIN_KM, Math.round(Number(km) * 10) / 10 || RADIO_MIN_KM))
 
-/**
- * Busca una dirección en Venezuela con Nominatim (OpenStreetMap, gratuito).
- * Sus normas de uso: máximo 1 búsqueda por segundo y nada de autocompletar en cada tecla,
- * por eso solo se llama al pulsar Enter o "Buscar". Prioriza resultados dentro de Miranda.
- */
-export async function buscarDireccion(texto) {
-  const q = (texto || "").trim()
-  if (q.length < 3) return []
+// Pide JSON con límite de tiempo: una conexión lenta no debe dejar el buscador colgado
+async function pedirJson(url, ms = 12000) {
+  const control = new AbortController()
+  const t = setTimeout(() => control.abort(), ms)
+  try {
+    const resp = await fetch(url, { signal: control.signal })
+    if (!resp.ok) throw new Error(`respondió ${resp.status}`)
+    return await resp.json()
+  } finally {
+    clearTimeout(t)
+  }
+}
+
+// Nominatim (OpenStreetMap): máximo 1 búsqueda por segundo y nada de autocompletar en cada tecla,
+// por eso solo se busca al pulsar Enter o la lupa. Prioriza resultados dentro de Miranda.
+async function buscarNominatim(q) {
   const params = new URLSearchParams({
     format: "jsonv2", q, countrycodes: "ve", limit: "5", "accept-language": "es",
     viewbox: "-67.45,10.85,-65.80,9.60", bounded: "0",
   })
-  const resp = await fetch(`https://nominatim.openstreetmap.org/search?${params}`)
-  if (!resp.ok) throw new Error(`El buscador de direcciones respondió ${resp.status}`)
-  const datos = await resp.json()
+  const datos = await pedirJson(`https://nominatim.openstreetmap.org/search?${params}`)
   return datos.map(d => ({
     nombre: d.display_name.split(",").slice(0, 3).join(",").trim(),
     detalle: d.display_name,
     centro: [Number(d.lon), Number(d.lat)],
   }))
+}
+
+// Photon (también OpenStreetMap): respaldo si Nominatim falla, está bloqueado o no encuentra nada
+async function buscarPhoton(q) {
+  const params = new URLSearchParams({ q, limit: "5", bbox: "-73.4,0.6,-59.8,12.2" })  // Venezuela
+  params.append("lat", "10.30"); params.append("lon", "-66.75")  // prioriza cerca de Miranda
+  const datos = await pedirJson(`https://photon.komoot.io/api/?${params}`)
+  return (datos.features || [])
+    .filter(f => !f.properties.countrycode || f.properties.countrycode === "VE")
+    .map(f => {
+      const p = f.properties
+      const partes = [p.name, p.street && (p.housenumber ? `${p.street} ${p.housenumber}` : p.street), p.district || p.locality, p.city || p.county, p.state]
+        .filter(Boolean).filter((v, i, a) => a.indexOf(v) === i)
+      return { nombre: partes.slice(0, 3).join(", "), detalle: partes.join(", "), centro: f.geometry.coordinates }
+    })
+}
+
+/** Busca una dirección en Venezuela; si el primer buscador falla o no encuentra nada, usa el segundo. */
+export async function buscarDireccion(texto) {
+  const q = (texto || "").trim()
+  if (q.length < 3) return []
+  let fallo = null
+  for (const buscador of [buscarNominatim, buscarPhoton]) {
+    try {
+      const r = await buscador(q)
+      if (r.length) return r
+    } catch (e) {
+      fallo = e
+    }
+  }
+  if (fallo) throw fallo
+  return []
 }
 
 export function distanciaKm([lon1, lat1], [lon2, lat2]) {

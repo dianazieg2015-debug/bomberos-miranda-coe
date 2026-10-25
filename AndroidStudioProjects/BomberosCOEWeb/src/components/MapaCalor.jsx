@@ -410,8 +410,11 @@ export default function MapaCalor({ reportes, todosLosReportes, isDark = true })
     setBuscando(true)
     try {
       setResultados(await buscarDireccion(textoBusqueda))
-    } catch {
-      setErrorBusqueda("No se pudo buscar. Revisa la conexión e inténtalo de nuevo.")
+    } catch (err) {
+      setResultados(null)
+      setErrorBusqueda(err?.name === "AbortError"
+        ? "El buscador tardó demasiado. Revisa la conexión e inténtalo de nuevo."
+        : "No se pudo conectar con los buscadores de direcciones. Si usas un bloqueador de anuncios o la protección contra rastreo del navegador, permite este sitio. Mientras tanto puedes usar “Marcar punto en el mapa”.")
     } finally {
       setBuscando(false)
     }
@@ -422,6 +425,34 @@ export default function MapaCalor({ reportes, todosLosReportes, isDark = true })
     setResultados(null)
     setTextoBusqueda(r.nombre)
   }
+
+  // Resultados de la búsqueda también en el mapa: pines numerados (los mismos números de la lista)
+  const irADireccionRef = useRef(irADireccion)
+  irADireccionRef.current = irADireccion
+  useEffect(() => {
+    const mapa = mapaRef.current
+    if (!mapa || !resultados?.length) return
+    const pines = resultados.map((r, i) => {
+      const el = document.createElement("button")
+      el.className = "pin-resultado"
+      const num = document.createElement("span")
+      num.className = "pin-num"
+      num.textContent = String(i + 1)
+      el.appendChild(num)
+      el.title = r.detalle
+      el.setAttribute("aria-label", `Ir a ${r.nombre}`)
+      el.addEventListener("click", (ev) => { ev.stopPropagation(); irADireccionRef.current(r) })
+      return new maplibregl.Marker({ element: el, anchor: "bottom" }).setLngLat(r.centro).addTo(mapa)
+    })
+    if (resultados.length === 1) {
+      mapa.flyTo({ center: resultados[0].centro, zoom: 14, duration: 1000 })
+    } else {
+      const limites = new maplibregl.LngLatBounds()
+      resultados.forEach(r => limites.extend(r.centro))
+      mapa.fitBounds(limites, { padding: 90, maxZoom: 14, duration: 1000 })
+    }
+    return () => pines.forEach(p => p.remove())
+  }, [resultados])
 
   // Marcador arrastrable en el centro del radar: al soltarlo, el radar se mueve ahí
   useEffect(() => {
@@ -535,7 +566,7 @@ export default function MapaCalor({ reportes, todosLosReportes, isDark = true })
               ) : resultados.map((r, i) => (
                 <button key={i} onClick={() => irADireccion(r)} title={r.detalle}
                   className="w-full text-left flex gap-1.5 px-2 py-1.5 hover:bg-white/10 border-b border-white/5 last:border-0">
-                  <MapPin size={12} className="text-[#00E676] flex-shrink-0 mt-0.5" />
+                  <span className="w-4 h-4 rounded-full bg-[#FFB020] text-[#0B0D10] text-[10px] font-black flex items-center justify-center flex-shrink-0 mt-px">{i + 1}</span>
                   <span className="text-[11px] text-gray-200 leading-snug">{r.nombre}</span>
                 </button>
               ))}
