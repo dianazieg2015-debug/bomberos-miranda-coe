@@ -22,6 +22,32 @@ export const ZONAS = [
 ]
 
 export const RADIOS_KM = [2, 5, 10]
+export const RADIO_MIN_KM = 0.5
+export const RADIO_MAX_KM = 30
+
+export const limitarRadio = (km) => Math.min(RADIO_MAX_KM, Math.max(RADIO_MIN_KM, Math.round(Number(km) * 10) / 10 || RADIO_MIN_KM))
+
+/**
+ * Busca una dirección en Venezuela con Nominatim (OpenStreetMap, gratuito).
+ * Sus normas de uso: máximo 1 búsqueda por segundo y nada de autocompletar en cada tecla,
+ * por eso solo se llama al pulsar Enter o "Buscar". Prioriza resultados dentro de Miranda.
+ */
+export async function buscarDireccion(texto) {
+  const q = (texto || "").trim()
+  if (q.length < 3) return []
+  const params = new URLSearchParams({
+    format: "jsonv2", q, countrycodes: "ve", limit: "5", "accept-language": "es",
+    viewbox: "-67.45,10.85,-65.80,9.60", bounded: "0",
+  })
+  const resp = await fetch(`https://nominatim.openstreetmap.org/search?${params}`)
+  if (!resp.ok) throw new Error(`El buscador de direcciones respondió ${resp.status}`)
+  const datos = await resp.json()
+  return datos.map(d => ({
+    nombre: d.display_name.split(",").slice(0, 3).join(",").trim(),
+    detalle: d.display_name,
+    centro: [Number(d.lon), Number(d.lat)],
+  }))
+}
 
 export function distanciaKm([lon1, lat1], [lon2, lat2]) {
   const dLat = rad(lat2 - lat1)

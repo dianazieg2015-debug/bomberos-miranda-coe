@@ -1,9 +1,9 @@
 import { useEffect, useMemo, useRef, useState } from "react"
 import maplibregl from "maplibre-gl"
 import "maplibre-gl/dist/maplibre-gl.css"
-import { Crosshair, Radar, Box, Square, MousePointerClick, X } from "lucide-react"
+import { Crosshair, Radar, Box, Square, MousePointerClick, X, Search, MapPin } from "lucide-react"
 import { formatoCoord } from "../geo"
-import { ZONAS, RADIOS_KM, distanciaKm, rumbo, anillo, sector, limitesCirculo, haceCuanto } from "../radar"
+import { ZONAS, RADIOS_KM, RADIO_MIN_KM, RADIO_MAX_KM, limitarRadio, buscarDireccion, distanciaKm, rumbo, anillo, sector, limitesCirculo, haceCuanto } from "../radar"
 import { COLOR_AREA, COLOR_SIN_AREA } from "../areas"
 
 // Mapa táctico WebGL: vista isométrica, calor de incidentes, edificios 3D y radar de zona.
@@ -233,6 +233,11 @@ export default function MapaCalor({ reportes, todosLosReportes, isDark = true })
   const [radioKm, setRadioKm] = useState(5)
   const [eligiendo, setEligiendo] = useState(false)
   const [cursor, setCursor] = useState(null)
+  const [textoBusqueda, setTextoBusqueda] = useState("")
+  const [resultados, setResultados] = useState(null)   // null = sin buscar; [] = sin resultados
+  const [buscando, setBuscando] = useState(false)
+  const [errorBusqueda, setErrorBusqueda] = useState("")
+  const marcadorRef = useRef(null)
 
   const conGPS = useMemo(() => reportes.filter(tieneGPS), [reportes])
   const areasPresentes = useMemo(
@@ -328,7 +333,7 @@ export default function MapaCalor({ reportes, todosLosReportes, isDark = true })
         .addTo(mapa)
     })
     mapaRef.current = mapa
-    return () => { mapa.remove(); mapaRef.current = null }
+    return () => { mapa.remove(); mapaRef.current = null; marcadorRef.current = null }
   }, [])
 
   useEffect(() => {
@@ -389,10 +394,69 @@ export default function MapaCalor({ reportes, todosLosReportes, isDark = true })
     mapaRef.current?.easeTo(nuevo ? { ...VISTA_3D, duration: 900 } : { pitch: 0, bearing: 0, duration: 900 })
   }
 
-  const cambiarRadio = (km) => {
-    setRadioKm(km)
-    if (zona) activarZona({ ...zona, km })
+  // encuadrar=false mientras se arrastra el deslizador: mover la cámara en cada paso marea
+  const cambiarRadio = (km, encuadrar = true) => {
+    const valor = limitarRadio(km)
+    setRadioKm(valor)
+    if (!zona) return
+    if (encuadrar) activarZona({ ...zona, km: valor })
+    else setZona({ ...zona, km: valor })
   }
+
+  const buscar = async (e) => {
+    e?.preventDefault()
+    setErrorBusqueda("")
+    if (textoBusqueda.trim().length < 3) { setErrorBusqueda("Escribe al menos 3 letras"); return }
+    setBuscando(true)
+    try {
+      setResultados(await buscarDireccion(textoBusqueda))
+    } catch {
+      setErrorBusqueda("No se pudo buscar. Revisa la conexión e inténtalo de nuevo.")
+    } finally {
+      setBuscando(false)
+    }
+  }
+
+  const irADireccion = (r) => {
+    activarZona({ nombre: r.nombre, centro: r.centro, km: radioKm })
+    setResultados(null)
+    setTextoBusqueda(r.nombre)
+  }
+
+  // Marcador arrastrable en el centro del radar: al soltarlo, el radar se mueve ahí
+  useEffect(() => {
+    const mapa = mapaRef.current
+    if (!mapa) return
+    if (!zona) {
+      marcadorRef.current?.remove()
+      marcadorRef.current = null
+      return
+    }
+    if (!marcadorRef.current) {
+      const el = document.createElement("div")
+      el.className = "marcador-radar"
+      el.title = "Arrastra para mover el radar"
+      el.innerHTML = `<svg viewBox="0 0 24 24" width="34" height="34" aria-hidden="true">
+        <circle cx="12" cy="12" r="10" fill="rgba(0,230,118,0.18)" stroke="#00E676" stroke-width="2"/>
+        <path d="M12 2v5M12 17v5M2 12h5M17 12h5" stroke="#00E676" stroke-width="2" stroke-linecap="round"/>
+        <circle cx="12" cy="12" r="2.5" fill="#00E676"/></svg>`
+      const marcador = new maplibregl.Marker({ element: el, draggable: true }).setLngLat(zona.centro).addTo(mapa)
+      // Mientras se arrastra, el círculo sigue al marcador; al soltar se recalculan los incidentes
+      marcador.on("drag", () => {
+        const { lng, lat } = marcador.getLngLat()
+        mapa.getSource("radar-zona")?.setData(geoZona({ ...zonaRef.current, centro: [lng, lat] }))
+        zonaRef.current = { ...zonaRef.current, centro: [lng, lat] }
+      })
+      marcador.on("dragend", () => {
+        const { lng, lat } = marcador.getLngLat()
+        setZona(z => ({ ...z, nombre: "Punto marcado", centro: [lng, lat] }))
+        setTextoBusqueda("")
+      })
+      marcadorRef.current = marcador
+    } else {
+      marcadorRef.current.setLngLat(zona.centro)
+    }
+  }, [zona])
 
   const elegirZona = (id) => {
     if (!id) { activarZona(null); return }
@@ -448,23 +512,85 @@ export default function MapaCalor({ reportes, todosLosReportes, isDark = true })
             <option value="">{zona && !zonaSeleccionada ? "◎ Punto marcado" : "— Elegir zona —"}</option>
             {ZONAS.map(z => <option key={z.id} value={z.id}>{z.nombre}</option>)}
           </select>
-          <div className="flex gap-1">
-            {RADIOS_KM.map(km => (
-              <button key={km} onClick={() => cambiarRadio(km)}
-                className={`flex-1 py-1 rounded-md text-[11px] font-mono font-bold border ${radioKm === km ? btnOn : btnOff}`}>
-                {km} km
-              </button>
-            ))}
+
+          {/* Buscar una dirección */}
+          <form onSubmit={buscar} className="flex gap-1">
+            <input
+              value={textoBusqueda}
+              onChange={e => { setTextoBusqueda(e.target.value); setErrorBusqueda("") }}
+              placeholder="Buscar dirección…"
+              aria-label="Buscar dirección"
+              className="flex-1 min-w-0 bg-black/60 border border-white/15 rounded-md px-2 py-1.5 text-xs text-white placeholder:text-gray-500 focus:outline-none focus:border-[#00E676]"
+            />
+            <button type="submit" disabled={buscando} title="Buscar (Enter)" aria-label="Buscar"
+              className="px-2 rounded-md border border-white/15 bg-black/50 text-gray-300 hover:text-white disabled:opacity-50">
+              <Search size={13} className={buscando ? "animate-pulse" : ""} />
+            </button>
+          </form>
+          {errorBusqueda && <p className="text-[11px] text-[#FF8A80]">{errorBusqueda}</p>}
+          {resultados && (
+            <div className="rounded-md border border-white/10 bg-black/60 max-h-40 overflow-y-auto">
+              {resultados.length === 0 ? (
+                <p className="px-2 py-2 text-[11px] text-gray-400">Sin resultados. Prueba con el nombre del sector o la ciudad.</p>
+              ) : resultados.map((r, i) => (
+                <button key={i} onClick={() => irADireccion(r)} title={r.detalle}
+                  className="w-full text-left flex gap-1.5 px-2 py-1.5 hover:bg-white/10 border-b border-white/5 last:border-0">
+                  <MapPin size={12} className="text-[#00E676] flex-shrink-0 mt-0.5" />
+                  <span className="text-[11px] text-gray-200 leading-snug">{r.nombre}</span>
+                </button>
+              ))}
+            </div>
+          )}
+
+          {/* Distancia de cobertura */}
+          <div className="space-y-1.5">
+            <div className="flex items-center justify-between">
+              <label htmlFor="radio-km" className="text-[10px] font-bold tracking-[0.12em] text-gray-400">COBERTURA</label>
+              <span className="flex items-center gap-1">
+                <input
+                  type="number" min={RADIO_MIN_KM} max={RADIO_MAX_KM} step="0.5"
+                  value={radioKm}
+                  onChange={e => e.target.value !== "" && cambiarRadio(e.target.value, false)}
+                  onBlur={() => zona && cambiarRadio(radioKm)}
+                  aria-label="Radio en kilómetros"
+                  className="w-14 bg-black/60 border border-white/15 rounded px-1.5 py-0.5 text-right font-mono text-xs text-white focus:outline-none focus:border-[#00E676]"
+                />
+                <span className="font-mono text-[11px] text-gray-400">km</span>
+              </span>
+            </div>
+            <input
+              id="radio-km" type="range" min={RADIO_MIN_KM} max={RADIO_MAX_KM} step="0.5"
+              value={radioKm}
+              onChange={e => cambiarRadio(e.target.value, false)}
+              onPointerUp={() => zona && cambiarRadio(radioKm)}
+              onKeyUp={() => zona && cambiarRadio(radioKm)}
+              className="w-full accent-[#00E676]"
+            />
+            <div className="flex gap-1">
+              {RADIOS_KM.map(km => (
+                <button key={km} onClick={() => cambiarRadio(km)}
+                  className={`flex-1 py-1 rounded-md text-[11px] font-mono font-bold border ${radioKm === km ? btnOn : btnOff}`}>
+                  {km} km
+                </button>
+              ))}
+            </div>
           </div>
+
           <button onClick={() => setEligiendo(v => !v)} className={`${btn} w-full justify-center ${eligiendo ? btnOn : btnOff}`}>
             <MousePointerClick size={13} /> {eligiendo ? "Haz clic en el mapa…" : "Marcar punto en el mapa"}
           </button>
+          {zona && (
+            <p className="text-[10px] text-gray-400 leading-snug">
+              Arrastra el marcador <span className="text-[#00E676]">⊕</span> del mapa para mover el radar.
+            </p>
+          )}
 
           {zona && (
             <div className="pt-2 border-t border-white/10 space-y-2">
               <p className="text-[11px] text-gray-300">
                 <span className="text-white font-bold">{zona.nombre}</span> · radio <span className="font-mono">{zona.km} km</span>
               </p>
+              <p className="font-mono text-[10px] text-[#7CFFB2]">{formatoCoord(zona.centro[1], zona.centro[0])}</p>
               <div className="grid grid-cols-3 gap-1 text-center">
                 {[["Total", resumenZona.total], ["24 h", resumenZona.dia], ["7 días", resumenZona.semana]].map(([etq, n]) => (
                   <div key={etq} className="bg-white/5 rounded-md py-1">
