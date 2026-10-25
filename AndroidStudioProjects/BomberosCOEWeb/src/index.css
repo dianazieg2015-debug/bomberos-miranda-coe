@@ -1,0 +1,297 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ════════════════════════════════════════════════════════════
+   SISTEMA DE DISEÑO TÁCTICO · COE Bomberos Miranda
+   Plano, alto contraste, color = significado (nunca decoración):
+     rojo   → emergencia activa / fuego / acción destructiva
+     ámbar  → despacho, en curso, pendiente de atención
+     verde  → disponible, confirmado, en línea
+     azul   → información neutra
+   Contraste verificado (WCAG): todo texto ≥ 4.5:1, texto base ≥ 15:1.
+   ════════════════════════════════════════════════════════════ */
+
+/* ── OSCURO (por defecto: turnos nocturnos, pantallas de vehículos) ── */
+:root {
+  --t-bg:         #0B0D10;
+  --t-surface:    #111419;
+  --t-card:       #171A20;
+  --t-card-alt:   #1E222A;
+  --t-border:     #2A2F38;
+  --t-text:       #F2F4F7;  /* 17.7:1 */
+  --t-muted:      #A3ABB8;  /* 8.4:1  */
+  --t-red:        #FF453A;  /* texto e indicadores · 5.7:1 */
+  --t-red-solid:  #D92D20;  /* botones rellenos · blanco encima 4.8:1 */
+  --t-amber:      #FFB020;  /* 10.6:1 */
+  --t-on-amber:   #0B0D10;  /* texto sobre relleno ámbar: 10.6:1 */
+  --t-green:      #30D158;  /* 9.6:1  */
+  --t-blue:       #4C9BFF;  /* 6.9:1  */
+  --t-gps:        #7CFFB2;
+  --t-shadow:     0 1px 2px rgba(0, 0, 0, 0.4);
+  /* Áreas operativas (categoría, no estado) */
+  --area-incendio:       #FF453A;
+  --area-rescate:        #4C9BFF;
+  --area-aph:            #30D158;
+  --area-matpel:         #FFB020;
+  --area-prevencion:     #BF5AF2;
+  --area-logistica:      #40C8E0;
+  --area-administracion: #FF6BB5;
+  --area-sin:            #A3ABB8;
+  color-scheme: dark;
+}
+
+/* ── CLARO (salas iluminadas / proyector) ─────────── */
+.light {
+  --t-bg:         #F3F5F8;
+  --t-surface:    #FFFFFF;
+  --t-card:       #FFFFFF;
+  --t-card-alt:   #EEF1F5;
+  --t-border:     #D5DAE1;
+  --t-text:       #0E1116;
+  --t-muted:      #4A5363;
+  --t-red:        #C8261B;
+  --t-red-solid:  #C8261B;
+  --t-amber:      #9A5B00;
+  --t-on-amber:   #FFFFFF;  /* 5.4:1 */
+  --t-green:      #17803A;
+  --t-blue:       #1D5FD1;
+  --t-gps:        #0E7A4F;
+  --t-shadow:     0 1px 3px rgba(15, 23, 42, 0.08);
+  /* Versiones oscurecidas: ≥ 4.6:1 sobre blanco y sobre el fondo claro */
+  --area-incendio:       #C8261B;
+  --area-rescate:        #1D5FD1;
+  --area-aph:            #17803A;
+  --area-matpel:         #9A5B00;
+  --area-prevencion:     #8E3CC7;
+  --area-logistica:      #0A7285;
+  --area-administracion: #B4246E;
+  --area-sin:            #4A5363;
+  color-scheme: light;
+}
+
+* {
+  font-family: 'Inter', sans-serif;
+}
+
+body {
+  background-color: var(--t-bg);
+  color: var(--t-text);
+}
+
+/* ── Micro-interacciones ─────────────────────────── */
+/* Incidente recién llegado: entra deslizando y destella 3 veces en rojo */
+@keyframes entra-incidente {
+  from { opacity: 0; transform: translateY(-6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+@keyframes destello-alerta {
+  0%, 100% { background-color: transparent; }
+  50%      { background-color: color-mix(in srgb, var(--t-red) 18%, transparent); }
+}
+.fila-nueva {
+  animation: entra-incidente 0.35s ease-out, destello-alerta 0.9s ease-in-out 0.35s 3;
+}
+/* Indicador "en vivo" */
+@keyframes pulso-vivo {
+  0%   { box-shadow: 0 0 0 0 color-mix(in srgb, currentColor 55%, transparent); }
+  100% { box-shadow: 0 0 0 7px transparent; }
+}
+.pulso-vivo { animation: pulso-vivo 1.6s ease-out infinite; }
+/* Foco visible y grueso para teclado (operadores de radio usan atajos) */
+:focus-visible {
+  outline: 2px solid var(--t-amber);
+  outline-offset: 2px;
+}
+@media (prefers-reduced-motion: reduce) {
+  .fila-nueva, .pulso-vivo { animation: none; }
+}
+
+.font-inter {
+  font-family: 'Inter', sans-serif;
+}
+
+/* Códigos, coordenadas y cifras: monoespaciada para leer sin ambigüedad (0/O, 1/l) */
+.font-mono, .font-mono * {
+  font-family: 'JetBrains Mono', ui-monospace, 'Cascadia Mono', Consolas, monospace;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ── Mapa táctico (MapLibre) ─────────────────────── */
+.maplibregl-ctrl-group {
+  background: rgba(0, 0, 0, 0.6) !important;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  backdrop-filter: blur(6px);
+}
+.maplibregl-ctrl-group button + button { border-top-color: rgba(255, 255, 255, 0.12) !important; }
+.maplibregl-ctrl-group button .maplibregl-ctrl-icon { filter: invert(1) brightness(0.85); }
+.maplibregl-ctrl-attrib { background: rgba(0, 0, 0, 0.55) !important; color: #9ca3af !important; }
+.maplibregl-ctrl-attrib a { color: #9ca3af !important; }
+
+.popup-tactico-wrap .maplibregl-popup-content {
+  background: rgba(11, 13, 16, 0.94);
+  border: 1px solid rgba(255, 59, 48, 0.55);
+  border-radius: 10px;
+  box-shadow: 0 0 24px rgba(255, 59, 48, 0.25);
+  padding: 10px 12px;
+  color: #f3f4f6;
+}
+.popup-tactico-wrap .maplibregl-popup-tip { border-top-color: rgba(255, 59, 48, 0.55) !important; border-bottom-color: rgba(255, 59, 48, 0.55) !important; }
+.popup-tactico .pt-codigo { font-family: 'JetBrains Mono', monospace; font-weight: 800; color: #FF5A1F; font-size: 14px; letter-spacing: 0.04em; }
+.popup-tactico .pt-area { font-size: 10px; font-weight: 800; letter-spacing: 0.18em; color: #9ca3af; margin-top: 1px; }
+.popup-tactico .pt-antares { font-size: 12px; margin-top: 6px; }
+.popup-tactico .pt-direccion { font-size: 11px; color: #d1d5db; margin-top: 4px; }
+.popup-tactico .pt-coord { font-family: 'JetBrains Mono', monospace; font-size: 10.5px; color: #7CFFB2; margin-top: 4px; }
+
+/* ── Hardcoded dark bg → light overrides ────────── */
+.light .modal-dark { background: #ffffff !important; border-color: #e0e0e0 !important; color: #111111 !important; }
+.light .input-dark  { background: #f5f5f5 !important; border-color: #e0e0e0 !important; color: #111111 !important; }
+.light .btn-dark    { background: #f0f0f0 !important; border-color: #d0d0d0 !important; color: #333333 !important; }
+
+/* Common hardcoded dark backgrounds */
+.light .bg-\[#161616\] { background-color: #ffffff !important; }
+.light .bg-\[#111111\] { background-color: #f8f8f8 !important; }
+.light .bg-\[#0f0f0f\] { background-color: #f3f3f3 !important; }
+.light .bg-\[#1a1a1a\] { background-color: #f0f0f0 !important; }
+.light .bg-\[#0a0a0a\] { background-color: #ebebeb !important; }
+
+/* Common hardcoded dark borders */
+.light .border-\[#2e2e2e\] { border-color: #e0e0e0 !important; }
+.light .border-\[#222222\] { border-color: #e5e5e5 !important; }
+.light .border-\[#1a1a1a\] { border-color: #ebebeb !important; }
+.light .border-\[#3e3e3e\] { border-color: #d5d5d5 !important; }
+.light .border-red-900     { border-color: #fca5a5 !important; }
+
+/* text-white inside dark containers → dark text in light mode */
+.light .bg-\[#161616\] .text-white,
+.light .bg-\[#111111\] .text-white,
+.light .bg-\[#0f0f0f\] .text-white,
+.light .bg-\[#1a1a1a\] .text-white { color: #111111 !important; }
+
+/* text-white on its own elements (not in colored buttons) */
+.light .text-gray-300 { color: #444444 !important; }
+.light .text-gray-400:not(button):not(a) { color: #555555 !important; }
+.light .text-gray-500:not(button):not(a) { color: #666666 !important; }
+.light .text-gray-600 { color: #555555 !important; }
+
+/* Inputs in light mode */
+.light input[class*="text-white"],
+.light textarea[class*="text-white"],
+.light select[class*="text-white"] { color: #111111 !important; }
+.light input::placeholder,
+.light textarea::placeholder { color: #aaaaaa !important; }
+
+/* ── Pantalla de carga (escudo 3D Bomberos Miranda) ─ */
+.loading-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1.5rem;
+  /* Totalmente transparente: sin fondo ni caja, solo el escudo recortado */
+  background: transparent;
+  opacity: 1;
+  transition: opacity 0.6s ease, visibility 0.6s ease;
+}
+
+/* Estado de salida: la página terminó de cargar → fade-out */
+.loading-overlay-hide {
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+}
+
+/* Escena 3D: aporta la perspectiva (profundidad) del giro de moneda.
+   El drop-shadow sigue la silueta real del escudo recortado (no dibuja caja). */
+.loading-shield-scene {
+  perspective: 1000px;
+  filter: drop-shadow(0 18px 28px rgba(0, 0, 0, 0.35));
+}
+
+/* Moneda 3D: gira de forma fluida hacia la derecha sobre su eje vertical */
+.loading-shield-coin {
+  position: relative;
+  width: 170px;
+  height: 216px; /* proporción del PNG recortado (674x858) */
+  transform-style: preserve-3d;
+  animation: loadingCoinSpin 2.6s linear infinite;
+  will-change: transform;
+}
+
+/* Cada cara de la moneda: solo el escudo, sin caja ni recorte cuadrado */
+.loading-shield-face {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+}
+
+/* Cara trasera pre-girada 180°: el reverso se ve como tal, no en espejo */
+.loading-shield-face-back {
+  transform: rotateY(180deg);
+  filter: brightness(0.72) saturate(0.9);
+}
+
+@keyframes loadingCoinSpin {
+  from { transform: rotateY(0deg); }
+  to   { transform: rotateY(360deg); }
+}
+
+.loading-title {
+  font-size: 1.05rem;
+  font-weight: 900;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  color: var(--t-text, #eaf2ff);
+  animation: loadingFadeIn 0.8s ease-out both;
+}
+
+.loading-subtitle {
+  font-size: 0.7rem;
+  font-weight: 600;
+  letter-spacing: 0.25em;
+  text-transform: uppercase;
+  color: var(--t-muted, #8fa3c8);
+  animation: loadingFadeIn 0.8s ease-out 0.2s both;
+}
+
+@keyframes loadingFadeIn {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* Barra de progreso indeterminada */
+.loading-track {
+  width: 220px;
+  height: 4px;
+  border-radius: 9999px;
+  background: var(--t-border, rgba(140, 175, 255, 0.14));
+  overflow: hidden;
+}
+.loading-bar {
+  width: 40%;
+  height: 100%;
+  border-radius: 9999px;
+  background: linear-gradient(90deg, transparent, var(--t-red, #ff2d55), var(--t-cyan, #00e5ff), transparent);
+  animation: loadingSlide 1.2s ease-in-out infinite;
+}
+@keyframes loadingSlide {
+  0%   { transform: translateX(-120%); }
+  100% { transform: translateX(320%); }
+}
+
+/* Respeto a usuarios con movimiento reducido */
+@media (prefers-reduced-motion: reduce) {
+  .loading-shield-coin {
+    animation-duration: 6s;
+  }
+  .loading-bar {
+    animation-duration: 2.4s;
+  }
+}

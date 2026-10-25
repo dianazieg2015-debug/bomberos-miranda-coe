@@ -1,0 +1,14 @@
+{
+  "name": "COE · Bomberos Miranda",
+  "short_name": "COE Bomberos",
+  "description": "Centro de Operaciones de Emergencia · Bomberos Miranda Cuartel Central",
+  "lang": "es",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#0f0f0f",
+  "theme_color": "#D32F2F",
+  "icons": [
+    { "src": "/icono.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" }
+  ]
+}

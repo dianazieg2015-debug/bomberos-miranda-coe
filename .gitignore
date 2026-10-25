@@ -1,0 +1,28 @@
+# ── Secretos: NUNCA al repositorio ─────────────────────────────
+.env
+.env.*
+!.env.example
+local.properties
+*.keystore
+*.jks
+firebase-export.json
+# Configuración del Firebase anterior (ya no se usa)
+google-services.json
+
+# ── Dependencias y compilados ──────────────────────────────────
+node_modules/
+dist/
+build/
+.gradle/
+*.apk
+*.aab
+
+# ── Editores y sistema ─────────────────────────────────────────
+.idea/caches/
+.idea/workspace.xml
+.idea/deviceStreaming.xml
+.vscode/
+.claude/settings.local.json
+.DS_Store
+Thumbs.db
+.netlify/

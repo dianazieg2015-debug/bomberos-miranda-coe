@@ -1,0 +1,12 @@
+{
+  "name": "migracion-firebase-supabase",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "migrar": "node --env-file=.env migrar.mjs firebase-export.json"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.118.0",
+    "pg": "^8.23.1"
+  }
+}
