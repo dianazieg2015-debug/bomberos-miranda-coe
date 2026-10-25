@@ -10,6 +10,8 @@ Sistema de gestión operativa del Cuerpo de Bomberos del Estado Miranda: los fun
 
 Las dos aplicaciones usan la misma base de datos en **Supabase**, por eso se mantienen sincronizadas al instante.
 
+> **¿Te invitaron a colaborar?** Empieza por [PARA_COLABORADORES.md](PARA_COLABORADORES.md): ahí está la ruta de la app (`apk/BomberosMiranda-COE.apk`) y cómo proponer cambios.
+
 ## Puesta en marcha
 
 1. **Base de datos:** ver [`supabase/README.md`](supabase/README.md).

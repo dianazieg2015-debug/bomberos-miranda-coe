@@ -16,6 +16,8 @@ build/
 .gradle/
 *.apk
 *.aab
+# Excepción: la APK de prueba que se comparte con el equipo
+!apk/*.apk
 
 # ── Editores y sistema ─────────────────────────────────────────
 .idea/caches/

@@ -9,7 +9,12 @@ import { randomUUID } from "node:crypto"
 import { createClient } from "@supabase/supabase-js"
 
 const DOMINIO = "@demo.bomberos.test"
-const BOMBERO_PRUEBA = { email: "bombero" + DOMINIO, password: "demo1234" }
+// La contraseña de la cuenta de prueba vive en .env (DEMO_PASSWORD), nunca en el repositorio
+const BOMBERO_PRUEBA = { email: "bombero" + DOMINIO, password: process.env.DEMO_PASSWORD }
+if (!BOMBERO_PRUEBA.password && process.argv[2] !== "--borrar") {
+  console.error("Falta DEMO_PASSWORD en el archivo .env (contraseña de la cuenta de prueba)")
+  process.exit(1)
+}
 const modo = process.argv[2] || "--crear"
 
 const db = new pg.Client({ connectionString: process.env.DATABASE_URL, ssl: { rejectUnauthorized: false } })
