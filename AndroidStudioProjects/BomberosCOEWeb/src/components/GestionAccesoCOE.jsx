@@ -17,8 +17,11 @@ function formatFecha(iso) {
 
 const FORM_VACIO = { tipo: "bombero", nombre: "", usuario: "", equipo: "", area: "", seccion: "", rol: "bombero", jerarquia: "" }
 
-export default function GestionAccesoCOE() {
+export default function GestionAccesoCOE({ adminEmail }) {
   const [admins, setAdmins] = useState([])
+  const [confirmarRestablecer, setConfirmarRestablecer] = useState(null)
+  // La propia cuenta no se restablece ni se quita desde aquí: dejaría fuera a quien la usa
+  const esYo = (a) => (a.email || "").toLowerCase() === (adminEmail || "").toLowerCase()
   const [form, setForm] = useState(FORM_VACIO)
   const [usuarioEditado, setUsuarioEditado] = useState(false)
   const [password, setPassword] = useState(generarPasswordTemporal)
@@ -186,17 +189,38 @@ export default function GestionAccesoCOE() {
                 <Clock size={10} /> Creado {formatFecha(a.creadoEn)}{a.creadoPor ? ` por ${usuarioDeCorreo(a.creadoPor)}` : ""}
               </p>
             </div>
-            <button onClick={() => restablecer(a)} disabled={restableciendo === a.email}
-              className="flex items-center gap-1.5 px-3 py-2 rounded-lg border border-tactical-amber/60 text-tactical-amber text-xs font-bold hover:bg-tactical-amber/10 disabled:opacity-50">
-              <KeyRound size={13} /> <span className="hidden sm:inline">Nueva contraseña</span>
-            </button>
-            <button onClick={() => setConfirmarQuitar(a)} title="Quitar acceso al panel" aria-label="Quitar acceso al panel"
-              className="p-2 rounded-lg border border-tactical-red/60 text-tactical-red hover:bg-tactical-red/10">
-              <Trash2 size={14} />
-            </button>
+            {esYo(a) ? (
+              <span className="text-[11px] font-black uppercase tracking-wider px-2.5 py-1 rounded-md border border-tactical-green/60 text-tactical-green">Tú</span>
+            ) : (<>
+              <button onClick={() => setConfirmarRestablecer(a)} disabled={restableciendo === a.email}
+                className="flex items-center gap-1.5 px-3 py-2 rounded-lg border border-tactical-amber/60 text-tactical-amber text-xs font-bold hover:bg-tactical-amber/10 disabled:opacity-50">
+                <KeyRound size={13} /> <span className="hidden sm:inline">Nueva contraseña</span>
+              </button>
+              <button onClick={() => setConfirmarQuitar(a)} title="Quitar acceso al panel" aria-label="Quitar acceso al panel"
+                className="p-2 rounded-lg border border-tactical-red/60 text-tactical-red hover:bg-tactical-red/10">
+                <Trash2 size={14} />
+              </button>
+            </>)}
           </div>
         ))}
       </div>
+
+      {confirmarRestablecer && (
+        <div className="fixed inset-0 bg-black/75 flex items-center justify-center z-50 p-4">
+          <div className="bg-tactical-card border border-tactical-border rounded-xl w-full max-w-sm shadow-2xl p-6 space-y-4">
+            <h3 className="font-black text-sm uppercase tracking-wider">¿Asignar una contraseña nueva?</h3>
+            <p className="text-tactical-muted text-sm">
+              La contraseña actual de <strong className="text-tactical-text">{confirmarRestablecer.nombre || usuarioDeCorreo(confirmarRestablecer.email)}</strong> dejará
+              de funcionar y se cerrarán sus sesiones abiertas. Tendrás que entregarle la contraseña temporal que aparecerá.
+            </p>
+            <div className="flex gap-3">
+              <button onClick={() => setConfirmarRestablecer(null)} className="flex-1 py-2.5 rounded-lg border border-tactical-border text-tactical-muted hover:text-tactical-text text-sm font-bold">Cancelar</button>
+              <button onClick={() => { const a = confirmarRestablecer; setConfirmarRestablecer(null); restablecer(a) }}
+                className="flex-1 py-2.5 rounded-lg bg-tactical-amber text-tactical-onAmber text-sm font-black uppercase">Sí, cambiarla</button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {confirmarQuitar && (
         <div className="fixed inset-0 bg-black/75 flex items-center justify-center z-50 p-4">
