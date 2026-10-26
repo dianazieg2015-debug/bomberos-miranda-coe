@@ -114,7 +114,10 @@ export default function GestionAccesoCOE() {
             <label htmlFor="cta-usuario" className={LABEL}>Usuario</label>
             <input id="cta-usuario" required className={`${INPUT} font-mono`} value={form.usuario}
               onChange={e => { setUsuarioEditado(true); set("usuario", e.target.value.toLowerCase().replace(/\s/g, "")) }}
-              pattern="[a-z0-9][a-z0-9._\-]{2,39}" title="3 a 40 letras minúsculas, números, punto o guion" placeholder="yperez" />
+              pattern="[a-z0-9][a-z0-9._\-]{2,39}|[^@\s]+@[^@\s]+\.[^@\s]+"
+              title="Un usuario (3 a 40 letras minúsculas, números, punto o guion) o un correo completo"
+              placeholder="yperez o correo@ejemplo.com" />
+            <p className="text-[11px] text-tactical-muted mt-1">Puede ser un usuario corto o un correo. Con un correo inventado no llegan avisos: si olvida la contraseña, se la restableces aquí.</p>
           </div>
         </div>
 
